@@ -142,6 +142,8 @@ runs/
 wandb/
 tests/
 .DS_Store
+YOLOv8_outputs*/
+*.ipynb
 
 # Neural Network weights -----------------------------------------------------------------------------------------------
 weights/

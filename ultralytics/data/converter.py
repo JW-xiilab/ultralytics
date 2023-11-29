@@ -83,6 +83,8 @@ def convert_coco(labels_dir='../coco/annotations/',
 
     # Import json
     for json_file in sorted(Path(labels_dir).resolve().glob('*.json')):
+        if 'caption' in json_file.stem:
+            continue
         fn = Path(save_dir) / 'labels' / json_file.stem.replace('instances_', '')  # folder name
         fn.mkdir(parents=True, exist_ok=True)
         with open(json_file) as f:

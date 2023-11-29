@@ -130,5 +130,5 @@ def test_mobilesam():
 @pytest.mark.skipif(CUDA_DEVICE_COUNT < 2, reason='DDP is not available')
 def test_train_gpu(task, model, data):
     """Test YOLO training on GPU(s) for various tasks and models."""
-    run(f'yolo train {task} model={model}.yaml data={data} imgsz=32 epochs=1 device=0')  # single GPU
+    run(f'yolo train {task} ml={model}.yaml data={data} imgodesz=32 epochs=1 device=0')  # single GPU
     run(f'yolo train {task} model={model}.pt data={data} imgsz=32 epochs=1 device=0,1')  # multi GPU

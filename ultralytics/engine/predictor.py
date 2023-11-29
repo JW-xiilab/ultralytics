@@ -30,10 +30,14 @@ Usage - formats:
 import platform
 import threading
 from pathlib import Path
+from copy import deepcopy
+from typing import Sequence
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 import torch
+import torch.nn as nn 
 
 from ultralytics.cfg import get_cfg, get_save_dir
 from ultralytics.data import load_inference_source
@@ -55,6 +59,18 @@ Example:
         masks = r.masks  # Masks object for segment masks outputs
         probs = r.probs  # Class probabilities for classification outputs
 """
+
+def get_model_info(model: nn.Module, tsize: Sequence[int]) -> str:
+    from thop import profile
+
+    stride = 640  # 64
+    img = torch.zeros((1, 3, stride, stride), device=next(model.parameters()).device)
+    flops, params = profile(deepcopy(model), inputs=(img,), verbose=False)
+    params /= 1e6
+    flops /= 1e9
+    flops *= tsize[0] * tsize[1] / stride / stride * 2  # Gflops
+    info = "Params: {:.2f}M, Gflops: {:.2f}".format(params, flops)
+    return info
 
 
 class BasePredictor:
@@ -162,7 +178,7 @@ class BasePredictor:
         else:
             frame = getattr(self.dataset, 'frame', 0)
         self.data_path = p
-        self.txt_path = str(self.save_dir / 'labels' / p.stem) + ('' if self.dataset.mode == 'image' else f'_{frame}')
+        self.txt_path = str(self.save_dir / p.stem) + ('' if self.dataset.mode == 'image' else f'_{frame}')
         log_string += '%gx%g ' % im.shape[2:]  # print string
         result = results[idx]
         log_string += result.verbose()
@@ -239,7 +255,11 @@ class BasePredictor:
 
             # Check if save_dir/ label file exists
             if self.args.save or self.args.save_txt:
-                (self.save_dir / 'labels' if self.args.save_txt else self.save_dir).mkdir(parents=True, exist_ok=True)
+                import time
+                now = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
+                parent_save_dir = self.save_dir = self.save_dir /'labels'/ str(self.args.classes[0])
+                self.save_dir = parent_save_dir / f'{now}'
+                (self.save_dir if self.args.save_txt else self.save_dir).mkdir(parents=True, exist_ok=True)
 
             # Warmup model
             if not self.done_warmup:
@@ -249,7 +269,7 @@ class BasePredictor:
             self.seen, self.windows, self.batch, profilers = 0, [], None, (ops.Profile(), ops.Profile(), ops.Profile())
             self.run_callbacks('on_predict_start')
 
-            for batch in self.dataset:
+            for batch in tqdm(self.dataset, desc='Inferecing', total=len(self.dataset), leave=True):
                 self.run_callbacks('on_predict_batch_start')
                 self.batch = batch
                 path, im0s, vid_cap, s = batch
@@ -304,9 +324,9 @@ class BasePredictor:
             LOGGER.info(f'Speed: %.1fms preprocess, %.1fms inference, %.1fms postprocess per image at shape '
                         f'{(1, 3, *im.shape[2:])}' % t)
         if self.args.save or self.args.save_txt or self.args.save_crop:
-            nl = len(list(self.save_dir.glob('labels/*.txt')))  # number of labels
+            nl = len(list(self.save_dir.glob('*.txt')))  # number of labels
             s = f"\n{nl} label{'s' * (nl > 1)} saved to {self.save_dir / 'labels'}" if self.args.save_txt else ''
-            LOGGER.info(f"Results saved to {colorstr('bold', self.save_dir)}{s}")
+            LOGGER.info(f"Results saved to {colorstr('bold', parent_save_dir)}{s}")
 
         self.run_callbacks('on_predict_end')
 
@@ -323,6 +343,7 @@ class BasePredictor:
         self.device = self.model.device  # update device
         self.args.half = self.model.fp16  # update half
         self.model.eval()
+        LOGGER.info("Model Summary: {}".format(get_model_info(self.model, (640,640))))
 
     def show(self, p):
         """Display an image in a window using OpenCV imshow()."""

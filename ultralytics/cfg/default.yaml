@@ -51,6 +51,8 @@ half: False  # (bool) use half precision (FP16)
 dnn: False  # (bool) use OpenCV DNN for ONNX inference
 plots: True  # (bool) save plots during train/val
 
+save_dir: /DATA_17/kjw/01-DET/ultralytics/YOLOv8_outputs
+
 # Prediction settings --------------------------------------------------------------------------------------------------
 source:  # (str, optional) source directory for images or videos
 show: False  # (bool) show results if possible

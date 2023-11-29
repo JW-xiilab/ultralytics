@@ -220,24 +220,17 @@ class Model(nn.Module):
             source = ASSETS
             LOGGER.warning(f"WARNING ⚠️ 'source' is missing. Using 'source={source}'.")
 
-        is_cli = (sys.argv[0].endswith('yolo') or sys.argv[0].endswith('ultralytics')) and any(
-            x in sys.argv for x in ('predict', 'track', 'mode=predict', 'mode=track'))
+        # is_cli = (sys.argv[0].endswith('yolo') or sys.argv[0].endswith('ultralytics')) and any(
+        #     x in sys.argv for x in ('predict', 'track', 'mode=predict', 'mode=track'))
 
-        custom = {'conf': 0.25, 'save': is_cli}  # method defaults
+        custom = {'conf': 0.25, 'save': False}  # method defaults
         args = {**self.overrides, **custom, **kwargs, 'mode': 'predict'}  # highest priority args on the right
-        prompts = args.pop('prompts', None)  # for SAM-type models
 
         if not self.predictor:
-            # self.predictor = (predictor or self._smart_load('predictor'))(overrides=args, _callbacks=self.callbacks)
             self.predictor = predictor(overrides=args, _callbacks=self.callbacks)
-            self.predictor.setup_model(model=self.model, verbose=is_cli)
-        else:  # only update args if predictor is already setup
-            self.predictor.args = get_cfg(self.predictor.args, args)
-            if 'project' in args or 'name' in args:
-                self.predictor.save_dir = get_save_dir(self.predictor.args)
-        if prompts and hasattr(self.predictor, 'set_prompts'):  # for SAM-type models
-            self.predictor.set_prompts(prompts)
-        return self.predictor.predict_cli(source=source) if is_cli else self.predictor(source=source, stream=stream)
+            self.predictor.setup_model(model=self.model, verbose=False)
+
+        return self.predictor(source=source, stream=stream)
 
     def track(self, source=None, stream=False, persist=False, **kwargs):
         """
